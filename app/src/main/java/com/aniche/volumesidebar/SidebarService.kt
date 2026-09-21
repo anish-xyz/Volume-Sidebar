@@ -6,9 +6,11 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.PixelFormat
+import android.graphics.drawable.GradientDrawable
 import android.media.AudioManager
 import android.os.Build
 import android.os.Handler
@@ -28,6 +30,7 @@ class SidebarService : Service() {
     private lateinit var sidebarHandle: View
     private lateinit var layoutParams: WindowManager.LayoutParams
     private lateinit var audioManager: AudioManager
+    private lateinit var prefs: SharedPreferences
 
     private val handler = Handler(Looper.getMainLooper())
     private var isMoveMode = false
@@ -42,6 +45,7 @@ class SidebarService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        prefs = getSharedPreferences("sidebar_prefs", Context.MODE_PRIVATE)
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         startForegroundServiceNotification()
         createSidebarHandle()
@@ -76,22 +80,41 @@ class SidebarService : Service() {
     private fun createSidebarHandle() {
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
 
+        // Read dimension preferences
+        val handleWidth = prefs.getInt("handle_width", 30)
+        val handleHeight = prefs.getInt("handle_height", 250)
+        val touchWidth = prefs.getInt("touch_width", 160)
+        val borderThickness = prefs.getInt("border_thickness", 2)
+
+        // Read RGB Color values for Sidebar Fill
+        val barA = prefs.getInt("bar_a", 128)
+        val barR = prefs.getInt("bar_r", 0)
+        val barG = prefs.getInt("bar_g", 0)
+        val barB = prefs.getInt("bar_b", 0)
+        val fillColor = Color.argb(barA, barR, barG, barB)
+
+        // Read RGB Color values for Border
+        val borderA = prefs.getInt("border_a", 255)
+        val borderR = prefs.getInt("border_r", 255)
+        val borderG = prefs.getInt("border_g", 255)
+        val borderB = prefs.getInt("border_b", 255)
+        val borderColor = Color.argb(borderA, borderR, borderG, borderB)
+
         touchContainer = FrameLayout(this).apply {
             setBackgroundColor(Color.TRANSPARENT)
         }
 
-        // Programmatically create a dark background with a thin white border
-        val handleDrawable = android.graphics.drawable.GradientDrawable().apply {
-            setColor(Color.parseColor("#80000000")) // Semi-transparent black fill
-            setStroke(2, Color.WHITE)                // 2px thin white border
-            cornerRadius = 4f                         // Slight rounded corners (optional)
+        val handleDrawable = GradientDrawable().apply {
+            setColor(fillColor)
+            setStroke(borderThickness, borderColor)
+            cornerRadius = 4f
         }
 
         sidebarHandle = View(this).apply {
             background = handleDrawable
         }
 
-        val handleParams = FrameLayout.LayoutParams(30, 250).apply {
+        val handleParams = FrameLayout.LayoutParams(handleWidth, handleHeight).apply {
             gravity = Gravity.CENTER_VERTICAL or Gravity.START
         }
         touchContainer.addView(sidebarHandle, handleParams)
@@ -104,8 +127,8 @@ class SidebarService : Service() {
         }
 
         layoutParams = WindowManager.LayoutParams(
-            160,
-            320,
+            touchWidth,
+            handleHeight + 70,
             layoutType,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
@@ -158,6 +181,8 @@ class SidebarService : Service() {
         var initialY = 0
         var swipeTriggered = false
 
+        val holdTime = prefs.getInt("hold_time", 2000).toLong()
+
         val holdRunnable = Runnable {
             isMoveMode = true
             sidebarHandle.alpha = 0.5f
@@ -169,7 +194,6 @@ class SidebarService : Service() {
 
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
-                    // Prevent OS navigation gesture interception
                     v.parent?.requestDisallowInterceptTouchEvent(true)
 
                     startX = event.rawX
@@ -178,7 +202,7 @@ class SidebarService : Service() {
                     isMoveMode = false
                     swipeTriggered = false
 
-                    handler.postDelayed(holdRunnable, 2000)
+                    handler.postDelayed(holdRunnable, holdTime)
                     true
                 }
 
@@ -216,7 +240,7 @@ class SidebarService : Service() {
                         layoutParams.x = 0
                         windowManager.updateViewLayout(touchContainer, layoutParams)
                     } else {
-                        val minSwipeDistance = 30 // Reduced distance threshold for faster response in landscape
+                        val minSwipeDistance = 30
                         val isInwardSwipe = if (isLeftEdge) {
                             deltaX > minSwipeDistance
                         } else {
