@@ -1,15 +1,33 @@
-*.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
-/build
-/captures
+# Built application files & APKs
+*.apk
+*.aab
+*.aar
+*.ap_
+*.dex
+
+# Built binaries & native artifacts
+*.class
+/build/
+app/build/
+app/release/
 .externalNativeBuild
-.cxx
-local.properties
+.cxx/
+/captures/
+
+# Signing keys & Keystores (CRITICAL FOR SECURITY)
+*.jks
+*.keystore
+*.pepk
+
+# Android Studio & IDE specific files
+/.idea/
+*.iml
+.gradle/
+.kotlin/
+
+# User-specific & Environment configuration
+/local.properties
+
+# OS-generated metadata
+.DS_Store
+Thumbs.db
